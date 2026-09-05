@@ -1,25 +1,31 @@
-// Database Transaksi QQTURBO (Data baru akan otomatis masuk ke indeks pertama/atas)
-let dbTransactions = {
-    deposit: [
-        { id: 2, ticket: "DEP-102", member: "Dewi Lestari", amount: 750000, bank: "BCA", endingBalance: "Rp 15.600.000", createdTime: "2026-09-05 22:15:30", status: "Success", date: "2026-09-05" },
-        { id: 1, ticket: "DEP-101", member: "Rian Pratama", amount: 1500000, bank: "BCA", endingBalance: "Rp 14.850.000", createdTime: "2026-09-05 22:10:15", status: "Success", date: "2026-09-05" }
-    ],
-    withdrawal: [
-        { id: 3, ticket: "WD-503", member: "Budi Setiawan", amount: 2000000, targetBank: "BSI - 11223344", sourceBank: "Mandiri Utama", endingBalance: "Rp 25.000.000", createdTime: "2026-09-05 22:00:00", finishedTime: "2026-09-05 22:06:36", status: "SELESAI OLEH CS", date: "2026-09-05" },
-        { id: 2, ticket: "WD-502", member: "HJS2800", amount: 1200000, targetBank: "Seabank - 987654", sourceBank: "BCA Utama", endingBalance: "Rp 13.900.000", createdTime: "2026-09-05 22:09:10", finishedTime: "2026-09-05 22:11:38", status: "SELESAI OLEH BOT", date: "2026-09-05" },
-        { id: 1, ticket: "WD-501", member: "oweeeee17", amount: 500000, targetBank: "DANA - 08123455", sourceBank: "BCA Utama", endingBalance: "Rp 15.100.000", createdTime: "2026-09-05 22:10:00", finishedTime: "2026-09-05 22:12:18", status: "SELESAI OLEH BOT", date: "2026-09-05" }
-    ]
-};
+// Konfigurasi Endpoint Cloudflare Worker Anda
+const WORKER_URL = "https://rjtx-api.trbmaster.workers.dev";
 
 let defaultUsername = "rjbotqq";
 let currentPassword = "admin1139";
-let activeEditId = null;
+let activeEditTicket = null;
+
+// Variabel penampung data global dari Worker
+let globalTransactions = {
+    deposit: [],
+    withdrawal: []
+};
+
+// Cek status login saat halaman dimuat
+window.onload = function() {
+    if (localStorage.getItem("rjtx_logged_in") === "true") {
+        document.getElementById("login-section").classList.add("hidden");
+        document.getElementById("main-panel").classList.remove("hidden");
+        initDashboard();
+    }
+};
 
 function handleLogin() {
     const user = document.getElementById("username").value;
     const pass = document.getElementById("password").value;
     
     if(user === defaultUsername && pass === currentPassword) {
+        localStorage.setItem("rjtx_logged_in", "true");
         document.getElementById("login-section").classList.add("hidden");
         document.getElementById("main-panel").classList.remove("hidden");
         initDashboard();
@@ -29,6 +35,7 @@ function handleLogin() {
 }
 
 function handleLogout() {
+    localStorage.removeItem("rjtx_logged_in");
     document.getElementById("main-panel").classList.add("hidden");
     document.getElementById("login-section").classList.remove("hidden");
     document.getElementById("username").value = "";
@@ -55,8 +62,48 @@ function switchTab(tabName) {
 }
 
 function initDashboard() {
-    document.getElementById("filter-date").value = "2026-09-05";
-    applyDateFilter();
+    // Set tanggal hari ini secara otomatis pada filter
+    const today = new Date().toISOString().split('T')[0];
+    document.getElementById("filter-date").value = today;
+    
+    fetchDataFromWorker();
+    // Auto-refresh data setiap 5 detik agar sinkron dengan bot
+    setInterval(fetchDataFromWorker, 5000);
+}
+
+// Mengambil Data Asli dari Cloudflare Worker (KV Database)
+async function fetchDataFromWorker() {
+    try {
+        let response = await fetch(`${WORKER_URL}/api/get-withdraw`);
+        if (response.ok) {
+            let data = await response.json();
+            // Format data dari worker agar sesuai dengan struktur tabel panel
+            globalTransactions.withdrawal = data.map((item, index) => ({
+                id: item.ticket || index,
+                ticket: item.ticket || "-",
+                member: item.member || "Belum Ada ID",
+                amount: Number(item.nominal || 0),
+                targetBank: item.tujuan || "-",
+                sourceBank: item.sumber_bank || "-",
+                endingBalance: item.saldo_akhir || "Rp 0",
+                createdTime: item.tanggal_dibuat || "-",
+                finishedTime: item.tanggal_selesai || "-",
+                status: item.status || "Pending",
+                date: item.tanggal_dibuat ? item.tanggal_dibuat.split(' ')[0] : new Date().toISOString().split('T')[0]
+            }));
+        }
+
+        // Jika Anda memiliki endpoint deposit di worker, ambil juga di sini
+        let resDep = await fetch(`${WORKER_URL}/api/get-deposit`).catch(() => null);
+        if (resDep && resDep.ok) {
+            let depData = await resDep.json();
+            globalTransactions.deposit = depData;
+        }
+
+        applyDateFilter();
+    } catch (error) {
+        console.error("Gagal menarik data dari Cloudflare Worker:", error);
+    }
 }
 
 function applyDateFilter() {
@@ -65,14 +112,14 @@ function applyDateFilter() {
     let totalMasuk = 0;
     let totalKeluar = 0;
 
-    const filteredDep = dbTransactions.deposit.filter(item => item.date === selectedDate);
+    const filteredDep = globalTransactions.deposit.filter(item => item.date === selectedDate);
     filteredDep.forEach(d => {
         if(d.status === "Success" || d.status === "SELESAI OLEH BOT" || d.status === "SELESAI OLEH CS") totalMasuk += d.amount;
     });
 
-    const filteredWd = dbTransactions.withdrawal.filter(item => item.date === selectedDate);
+    const filteredWd = globalTransactions.withdrawal.filter(item => !selectedDate || item.date === selectedDate);
     filteredWd.forEach(w => {
-        if(w.status.includes("SELESAI") || w.status === "Success") totalKeluar += w.amount;
+        if(w.status.includes("SELESAI") || w.status === "Success" || w.status === "Updated by CS") totalKeluar += w.amount;
     });
 
     document.getElementById("stat-uang-masuk").innerText = `Rp ${totalMasuk.toLocaleString('id-ID')}`;
@@ -85,28 +132,35 @@ function renderTables(depList, wdList) {
     const tbodyDep = document.getElementById("table-deposit-body");
     tbodyDep.innerHTML = "";
     
-    // Mengurutkan dari yang terbaru (berdasarkan waktu dibuat / ID terbesar)
-    depList.sort((a, b) => b.id - a.id).forEach(d => {
-        tbodyDep.innerHTML += `
-            <tr class="hover:bg-gray-750">
-                <td class="p-3 font-mono">${d.ticket}</td>
-                <td class="p-3">${d.member}</td>
-                <td class="p-3 text-blue-400 font-semibold">Rp ${d.amount.toLocaleString('id-ID')}</td>
-                <td class="p-3">${d.bank}</td>
-                <td class="p-3 text-gray-300 font-mono">${d.endingBalance}</td>
-                <td class="p-3 text-gray-400">${d.createdTime}</td>
-                <td class="p-3"><span class="px-2 py-0.5 text-[10px] rounded bg-blue-900 text-blue-300 font-semibold">SUCCESS</span></td>
-            </tr>
-        `;
-    });
+    if (depList.length === 0) {
+        tbodyDep.innerHTML = `<tr><td colspan="7" class="p-4 text-center text-gray-400">Belum ada data deposit.</td></tr>`;
+    } else {
+        depList.forEach(d => {
+            tbodyDep.innerHTML += `
+                <tr class="hover:bg-gray-750">
+                    <td class="p-3 font-mono">${d.ticket}</td>
+                    <td class="p-3">${d.member}</td>
+                    <td class="p-3 text-blue-400 font-semibold">Rp ${d.amount.toLocaleString('id-ID')}</td>
+                    <td class="p-3">${d.bank}</td>
+                    <td class="p-3 text-gray-300 font-mono">${d.endingBalance}</td>
+                    <td class="p-3 text-gray-400">${d.createdTime}</td>
+                    <td class="p-3"><span class="px-2 py-0.5 text-[10px] rounded bg-blue-900 text-blue-300 font-semibold">SUCCESS</span></td>
+                </tr>
+            `;
+        });
+    }
 
     const tbodyWd = document.getElementById("table-withdrawal-body");
     tbodyWd.innerHTML = "";
     
-    // Mengurutkan dari yang terbaru (berdasarkan waktu dibuat / ID terbesar)
-    wdList.sort((a, b) => b.id - a.id).forEach(w => {
+    if (wdList.length === 0) {
+        tbodyWd.innerHTML = `<tr><td colspan="10" class="p-4 text-center text-gray-400">Belum ada data withdrawal dari bot.</td></tr>`;
+        return;
+    }
+
+    wdList.forEach(w => {
         let badgeColor = "bg-teal-700 text-white";
-        if(w.status === "SELESAI OLEH CS") badgeColor = "bg-amber-700 text-white";
+        if(w.status === "SELESAI OLEH CS" || w.status === "Updated by CS") badgeColor = "bg-amber-700 text-white";
         if(w.status === "REJECT") badgeColor = "bg-red-700 text-white";
 
         tbodyWd.innerHTML += `
@@ -121,7 +175,7 @@ function renderTables(depList, wdList) {
                 <td class="p-3 text-gray-300">${w.finishedTime}</td>
                 <td class="p-3"><span class="px-2.5 py-1 text-[10px] rounded font-bold ${badgeColor}">${w.status}</span></td>
                 <td class="p-3 text-center">
-                    <button onclick="openEditModal(${w.id})" class="p-1.5 bg-gray-700 hover:bg-blue-600 rounded text-white transition" title="Edit ID Member">
+                    <button onclick="openEditModal('${w.ticket}')" class="p-1.5 bg-gray-700 hover:bg-blue-600 rounded text-white transition" title="Edit ID Member">
                         ✏️
                     </button>
                 </td>
@@ -130,34 +184,66 @@ function renderTables(depList, wdList) {
     });
 }
 
-function openEditModal(id) {
-    activeEditId = id;
-    let item = dbTransactions.withdrawal.find(w => w.id === id);
+function openEditModal(ticket) {
+    activeEditTicket = ticket;
+    let item = globalTransactions.withdrawal.find(w => w.ticket === ticket);
     if(item) {
-        document.getElementById("input-edit-member").value = item.member;
+        document.getElementById("input-edit-member").value = item.member === "Belum Ada ID" ? "" : item.member;
         document.getElementById("modal-edit-id").classList.remove("hidden");
     }
 }
 
 function closeModalEdit() {
     document.getElementById("modal-edit-id").classList.add("hidden");
+    activeEditTicket = null;
 }
 
-function saveEditedMember() {
+// Menyimpan Edit ID Member dan mengirimkannya kembali ke Worker
+async function saveEditedMember() {
     const newName = document.getElementById("input-edit-member").value;
     if(!newName) {
         alert("Nama/ID member tidak boleh kosong!");
         return;
     }
-    let item = dbTransactions.withdrawal.find(w => w.id === activeEditId);
-    if(item) {
-        item.member = newName;
-        item.status = "SELESAI OLEH CS"; 
-        item.finishedTime = new Date().toISOString().slice(0, 19).replace('T', ' ');
-        alert(`ID Member berhasil diperbarui menjadi "${newName}" dan diproses manual oleh CS.`);
+
+    let item = globalTransactions.withdrawal.find(w => w.ticket === activeEditTicket);
+    if(!item) {
+        alert("Data tiket tidak ditemukan!");
+        closeModalEdit();
+        return;
     }
-    closeModalEdit();
-    applyDateFilter();
+
+    // Payload data yang dikirim ke Worker
+    let updatedData = {
+        ticket: item.ticket,
+        member: newName,
+        nominal: item.amount,
+        tujuan: item.targetBank,
+        sumber_bank: item.sourceBank,
+        saldo_akhir: item.endingBalance,
+        tanggal_dibuat: item.createdTime,
+        tanggal_selesai: new Date().toISOString().slice(0, 19).replace('T', ' '),
+        status: "SELESAI OLEH CS"
+    };
+
+    try {
+        let response = await fetch(`${WORKER_URL}/api/withdraw`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(updatedData)
+        });
+
+        if (response.ok) {
+            alert(`ID Member berhasil diperbarui menjadi "${newName}"!`);
+            closeModalEdit();
+            fetchDataFromWorker(); // Refresh data dari server
+        } else {
+            alert("Gagal menyimpan perubahan ke server Worker.");
+        }
+    } catch (err) {
+        console.error("Error updating member:", err);
+        alert("Terjadi kesalahan koneksi jaringan.");
+    }
 }
 
 function handleChangePassword() {
