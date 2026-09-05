@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RJTX - Panel Kontrol Utama</title>
+    <!-- Menggunakan Tailwind CSS via CDN agar tampilannya modern & gelap (Dark Mode) -->
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+</head>
+<body class="bg-gray-900 text-gray-100 font-sans antialiased">
+
+    <!-- Container Utama -->
+    <div class="flex h-screen overflow-hidden">
+        
+        <!-- Sidebar Menu -->
+        <aside class="w-64 bg-gray-800 border-r border-gray-700 flex flex-col justify-between">
+            <div class="p-5">
+                <h1 class="text-2xl font-bold text-green-400 tracking-wider">RJTX PANEL</h1>
+                <p class="text-xs text-gray-400 mt-1">Sistem Otomasi Bank & E-Wallet</p>
+                
+                <nav class="mt-8 space-y-2">
+                    <a href="#" class="block px-4 py-2.5 rounded-lg bg-gray-700 text-green-300 font-medium">Dashboard</a>
+                    <a href="#" class="block px-4 py-2.5 rounded-lg hover:bg-gray-700 text-gray-300">Manajemen Perangkat</a>
+                    <a href="#" class="block px-4 py-2.5 rounded-lg hover:bg-gray-700 text-gray-300">Pengaturan Bank</a>
+                    <a href="#" class="block px-4 py-2.5 rounded-lg hover:bg-gray-700 text-gray-300">Log Aktivitas</a>
+                </nav>
+            </div>
+            <div class="p-4 border-t border-gray-700 text-xs text-gray-500 text-center">
+                RJTX System v1.0 &copy; 2026
+            </div>
+        </aside>
+
+        <!-- Konten Utama -->
+        <main class="flex-1 flex flex-col overflow-y-auto">
+            
+            <!-- Topbar -->
+            <header class="bg-gray-800 border-b border-gray-700 h-16 flex items-center justify-between px-6">
+                <span class="text-sm font-semibold text-gray-300">Pusat Kendali CS / Admin</span>
+                <div class="flex items-center space-x-3">
+                    <span class="inline-block w-3 h-3 bg-green-500 rounded-full animate-pulse"></span>
+                    <span class="text-sm text-gray-300">Server Connected</span>
+                </div>
+            </header>
+
+            <!-- Dashboard Body -->
+            <div class="p-6 space-y-6">
+                
+                <!-- Kotak Statistik Keuangan (Uang Masuk & Keluar) -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <!-- Total Uang Masuk (Deposit) -->
+                    <div class="bg-gray-800 p-6 rounded-xl border border-gray-700 shadow-lg">
+                        <p class="text-sm font-medium text-gray-400">Total Uang Masuk (Deposit)</p>
+                        <h3 id="total-masuk" class="text-3xl font-bold text-green-400 mt-2">Rp 0</h3>
+                    </div>
+                    <!-- Total Uang Keluar (Withdrawal) -->
+                    <div class="bg-gray-800 p-6 rounded-xl border border-gray-700 shadow-lg">
+                        <p class="text-sm font-medium text-gray-400">Total Uang Keluar (Withdrawal)</p>
+                        <h3 id="total-keluar" class="text-3xl font-bold text-red-400 mt-2">Rp 0</h3>
+                    </div>
+                </div>
+
+                <!-- Tabel Antrean Withdrawal & Tombol Retry -->
+                <div class="bg-gray-800 rounded-xl border border-gray-700 overflow-hidden shadow-lg">
+                    <div class="p-5 border-b border-gray-700 flex justify-between items-center">
+                        <h3 class="font-bold text-lg text-gray-200">Antrean Withdrawal & Aksi Bot</h3>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse">
+                            <thead>
+                                <tr class="bg-gray-900 text-gray-400 text-xs uppercase tracking-wider">
+                                    <th class="p-4">Ticket No</th>
+                                    <th class="p-4">Member</th>
+                                    <th class="p-4">Jumlah (IDR)</th>
+                                    <th class="p-4">Tujuan Bank</th>
+                                    <th class="p-4">Status</th>
+                                    <th class="p-4 text-center">Aksi (Retry)</th>
+                                </tr>
+                            </thead>
+                            <tbody id="table-wd-body" class="divide-y divide-gray-700 text-sm">
+                                <!-- Data akan di-load secara dinamis oleh JavaScript -->
+                                <tr>
+                                    <td class="p-4 text-gray-400" colspan="6">Memuat data transaksi...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+            </div>
+        </main>
+    </div>
+
+    <!-- Panggil file logika JavaScript -->
+    <script src="app.js"></script>
+</body>
+</html>
