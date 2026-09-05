@@ -11,42 +11,55 @@ let dbTransactions = {
     ]
 };
 
+// Kredensial Default Baru Sesuai Permintaan
+let defaultUsername = "rjbotqq";
+let currentPassword = "admin1139";
 let activeOverrideId = null;
 
 // Fungsi Login
 function handleLogin() {
     const user = document.getElementById("username").value;
     const pass = document.getElementById("password").value;
-    if(user && pass) {
+    
+    if(user === defaultUsername && pass === currentPassword) {
         document.getElementById("login-section").classList.add("hidden");
         document.getElementById("main-panel").classList.remove("hidden");
         initDashboard();
     } else {
-        alert("Masukkan username dan password dengan benar!");
+        alert("Username atau Password salah! (Gunakan: rjbotqq / admin1139)");
     }
 }
 
 function handleLogout() {
     document.getElementById("main-panel").classList.add("hidden");
+    document.getElementById("login-section").classList.add("hidden");
+    document.getElementById("username").value = "";
+    document.getElementById("password").value = "";
     document.getElementById("login-section").classList.remove("hidden");
 }
 
-// Navigasi Menu & Tab
+// Navigasi Menu & Tab (Warna Aktif Menyesuaikan Biru)
 function switchTab(tabName) {
-    ['dashboard', 'deposit', 'withdrawal', 'devices'].forEach(t => {
+    ['dashboard', 'deposit', 'withdrawal', 'password'].forEach(t => {
         document.getElementById(`content-${t}`).classList.add("hidden");
-        document.getElementById(`nav-${t}`).classList.remove("bg-gray-700", "text-green-300");
+        document.getElementById(`nav-${t}`).classList.remove("bg-blue-600", "text-white");
         document.getElementById(`nav-${t}`).classList.add("text-gray-300");
     });
     
     document.getElementById(`content-${tabName}`).classList.remove("hidden");
-    document.getElementById(`nav-${tabName}`).classList.add("bg-gray-700", "text-green-300");
-    document.getElementById("current-menu-title").innerText = tabName.toUpperCase() + " MANAGEMENT";
+    document.getElementById(`nav-${tabName}`).classList.add("bg-blue-600", "text-white");
+    
+    if(tabName === 'password') {
+        document.getElementById("current-menu-title").innerText = "CHANGE PASSWORD SETTINGS";
+        document.getElementById("date-filter-container").classList.add("hidden");
+    } else {
+        document.getElementById("current-menu-title").innerText = tabName.toUpperCase() + " MANAGEMENT";
+        document.getElementById("date-filter-container").classList.remove("hidden");
+    }
 }
 
-// Inisialisasi & Kalkulasi Keuangan Sesuai Data & Filter Tanggal
+// Inisialisasi & Kalkulasi Keuangan
 function initDashboard() {
-    // Set default filter tanggal hari ini (2026-09-05)
     document.getElementById("filter-date").value = "2026-09-05";
     applyDateFilter();
 }
@@ -57,28 +70,24 @@ function applyDateFilter() {
     let totalMasuk = 0;
     let totalKeluar = 0;
 
-    // Filter Deposit Success
     const filteredDep = dbTransactions.deposit.filter(item => item.date === selectedDate);
     filteredDep.forEach(d => {
         if(d.status === "Success") totalMasuk += d.amount;
     });
 
-    // Filter Withdrawal Success
     const filteredWd = dbTransactions.withdrawal.filter(item => item.date === selectedDate);
     filteredWd.forEach(w => {
         if(w.status === "Success") totalKeluar += w.amount;
     });
 
-    // Update UI Dashboard
     document.getElementById("stat-uang-masuk").innerText = `Rp ${totalMasuk.toLocaleString('id-ID')}`;
     document.getElementById("stat-uang-keluar").innerText = `Rp ${totalKeluar.toLocaleString('id-ID')}`;
 
     renderTables(filteredDep, filteredWd);
 }
 
-// Render Tabel Deposit & Withdrawal
+// Render Tabel
 function renderTables(depList, wdList) {
-    // Render Deposit
     const tbodyDep = document.getElementById("table-deposit-body");
     tbodyDep.innerHTML = "";
     depList.forEach(d => {
@@ -86,14 +95,13 @@ function renderTables(depList, wdList) {
             <tr class="hover:bg-gray-750">
                 <td class="p-4 font-mono">${d.ticket}</td>
                 <td class="p-4">${d.member}</td>
-                <td class="p-4 text-green-400 font-semibold">Rp ${d.amount.toLocaleString('id-ID')}</td>
+                <td class="p-4 text-blue-400 font-semibold">Rp ${d.amount.toLocaleString('id-ID')}</td>
                 <td class="p-4">${d.bank}</td>
-                <td class="p-4"><span class="px-2 py-1 text-xs rounded bg-green-900 text-green-300">${d.status}</span></td>
+                <td class="p-4"><span class="px-2 py-1 text-xs rounded bg-blue-900 text-blue-300">${d.status}</span></td>
             </tr>
         `;
     });
 
-    // Render Withdrawal
     const tbodyWd = document.getElementById("table-withdrawal-body");
     tbodyWd.innerHTML = "";
     wdList.forEach(w => {
@@ -124,7 +132,36 @@ function renderTables(depList, wdList) {
     });
 }
 
-// Logika Tombol Retry (Maksimal 2 Kali)
+// Logika Ganti Password Fungsional
+function handleChangePassword() {
+    const oldPass = document.getElementById("old-pass").value;
+    const newPass = document.getElementById("new-pass").value;
+    const confirmPass = document.getElementById("confirm-pass").value;
+
+    if (!oldPass || !newPass || !confirmPass) {
+        alert("Semua kolom form password wajib diisi!");
+        return;
+    }
+
+    if (oldPass !== currentPassword) {
+        alert("Password lama yang Anda masukkan salah!");
+        return;
+    }
+
+    if (newPass !== confirmPass) {
+        alert("Konfirmasi password baru tidak cocok!");
+        return;
+    }
+
+    currentPassword = newPass;
+    alert("Password panel berhasil diubah! Gunakan password baru Anda untuk login selanjutnya.");
+    
+    document.getElementById("old-pass").value = "";
+    document.getElementById("new-pass").value = "";
+    document.getElementById("confirm-pass").value = "";
+}
+
+// Retry & Override Logic
 function doRetry(id) {
     let item = dbTransactions.withdrawal.find(w => w.id === id);
     if(item && item.retryCount < 2) {
@@ -134,13 +171,13 @@ function doRetry(id) {
     }
 }
 
-// Logika Pop-Up Override
 function openOverrideModal(id) {
     activeOverrideId = id;
     let item = dbTransactions.withdrawal.find(w => w.id === id);
     if(item) {
         document.getElementById("override-form-name").innerText = item.formName;
         document.getElementById("override-bank-name").innerText = item.bankName;
+        document.getElementById("modal-override").classList.add("hidden"); // reset
         document.getElementById("modal-override").classList.remove("hidden");
     }
 }
