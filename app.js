@@ -1,13 +1,13 @@
-// Database Transaksi QQTURBO
+// Database Transaksi QQTURBO (Data baru akan otomatis masuk ke indeks pertama/atas)
 let dbTransactions = {
     deposit: [
-        { id: 1, ticket: "DEP-101", member: "Rian Pratama", amount: 1500000, bank: "BCA", endingBalance: "Rp 14.850.000", createdTime: "2026-09-05 22:10:15", status: "Success", date: "2026-09-05" },
-        { id: 2, ticket: "DEP-102", member: "Dewi Lestari", amount: 750000, bank: "BCA", endingBalance: "Rp 15.600.000", createdTime: "2026-09-05 22:15:30", status: "Success", date: "2026-09-05" }
+        { id: 2, ticket: "DEP-102", member: "Dewi Lestari", amount: 750000, bank: "BCA", endingBalance: "Rp 15.600.000", createdTime: "2026-09-05 22:15:30", status: "Success", date: "2026-09-05" },
+        { id: 1, ticket: "DEP-101", member: "Rian Pratama", amount: 1500000, bank: "BCA", endingBalance: "Rp 14.850.000", createdTime: "2026-09-05 22:10:15", status: "Success", date: "2026-09-05" }
     ],
     withdrawal: [
-        { id: 1, ticket: "WD-501", member: "oweeeee17", amount: 500000, targetBank: "DANA - 08123455", sourceBank: "BCA Utama", endingBalance: "Rp 15.100.000", createdTime: "2026-09-05 22:10:00", finishedTime: "2026-09-05 22:12:18", status: "SELESAI OLEH BOT", date: "2026-09-05" },
+        { id: 3, ticket: "WD-503", member: "Budi Setiawan", amount: 2000000, targetBank: "BSI - 11223344", sourceBank: "Mandiri Utama", endingBalance: "Rp 25.000.000", createdTime: "2026-09-05 22:00:00", finishedTime: "2026-09-05 22:06:36", status: "SELESAI OLEH CS", date: "2026-09-05" },
         { id: 2, ticket: "WD-502", member: "HJS2800", amount: 1200000, targetBank: "Seabank - 987654", sourceBank: "BCA Utama", endingBalance: "Rp 13.900.000", createdTime: "2026-09-05 22:09:10", finishedTime: "2026-09-05 22:11:38", status: "SELESAI OLEH BOT", date: "2026-09-05" },
-        { id: 3, ticket: "WD-503", member: "Budi Setiawan", amount: 2000000, targetBank: "BSI - 11223344", sourceBank: "Mandiri Utama", endingBalance: "Rp 25.000.000", createdTime: "2026-09-05 22:00:00", finishedTime: "2026-09-05 22:06:36", status: "SELESAI OLEH CS", date: "2026-09-05" }
+        { id: 1, ticket: "WD-501", member: "oweeeee17", amount: 500000, targetBank: "DANA - 08123455", sourceBank: "BCA Utama", endingBalance: "Rp 15.100.000", createdTime: "2026-09-05 22:10:00", finishedTime: "2026-09-05 22:12:18", status: "SELESAI OLEH BOT", date: "2026-09-05" }
     ]
 };
 
@@ -84,7 +84,9 @@ function applyDateFilter() {
 function renderTables(depList, wdList) {
     const tbodyDep = document.getElementById("table-deposit-body");
     tbodyDep.innerHTML = "";
-    depList.forEach(d => {
+    
+    // Mengurutkan dari yang terbaru (berdasarkan waktu dibuat / ID terbesar)
+    depList.sort((a, b) => b.id - a.id).forEach(d => {
         tbodyDep.innerHTML += `
             <tr class="hover:bg-gray-750">
                 <td class="p-3 font-mono">${d.ticket}</td>
@@ -100,7 +102,9 @@ function renderTables(depList, wdList) {
 
     const tbodyWd = document.getElementById("table-withdrawal-body");
     tbodyWd.innerHTML = "";
-    wdList.forEach(w => {
+    
+    // Mengurutkan dari yang terbaru (berdasarkan waktu dibuat / ID terbesar)
+    wdList.sort((a, b) => b.id - a.id).forEach(w => {
         let badgeColor = "bg-teal-700 text-white";
         if(w.status === "SELESAI OLEH CS") badgeColor = "bg-amber-700 text-white";
         if(w.status === "REJECT") badgeColor = "bg-red-700 text-white";
@@ -148,7 +152,7 @@ function saveEditedMember() {
     let item = dbTransactions.withdrawal.find(w => w.id === activeEditId);
     if(item) {
         item.member = newName;
-        item.status = "SELESAI OLEH CS"; // Jika diedit manual CS, tandai Selesai Oleh CS
+        item.status = "SELESAI OLEH CS"; 
         item.finishedTime = new Date().toISOString().slice(0, 19).replace('T', ' ');
         alert(`ID Member berhasil diperbarui menjadi "${newName}" dan diproses manual oleh CS.`);
     }
