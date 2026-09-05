@@ -1,8 +1,8 @@
 // Konfigurasi Endpoint Cloudflare Worker Anda
 const WORKER_URL = "https://rjtx-api.trbmaster.workers.dev";
 
-let defaultUsername = "rjbotqq";
-let currentPassword = "admin1139";
+const defaultUsername = "rjbotqq";
+const currentPassword = "admin1139";
 let activeEditTicket = null;
 
 // Variabel penampung data global dari Worker
@@ -64,7 +64,10 @@ function switchTab(tabName) {
 function initDashboard() {
     // Set tanggal hari ini secara otomatis pada filter
     const today = new Date().toISOString().split('T')[0];
-    document.getElementById("filter-date").value = today;
+    const filterInput = document.getElementById("filter-date");
+    if(filterInput && !filterInput.value) {
+        filterInput.value = today;
+    }
     
     fetchDataFromWorker();
     // Auto-refresh data setiap 5 detik agar sinkron dengan bot
@@ -77,7 +80,6 @@ async function fetchDataFromWorker() {
         let response = await fetch(`${WORKER_URL}/api/get-withdraw`);
         if (response.ok) {
             let data = await response.json();
-            // Format data dari worker agar sesuai dengan struktur tabel panel
             globalTransactions.withdrawal = data.map((item, index) => ({
                 id: item.ticket || index,
                 ticket: item.ticket || "-",
@@ -93,11 +95,20 @@ async function fetchDataFromWorker() {
             }));
         }
 
-        // Jika Anda memiliki endpoint deposit di worker, ambil juga di sini
         let resDep = await fetch(`${WORKER_URL}/api/get-deposit`).catch(() => null);
         if (resDep && resDep.ok) {
             let depData = await resDep.json();
-            globalTransactions.deposit = depData;
+            globalTransactions.deposit = depData.map((d, index) => ({
+                id: d.ticket || index,
+                ticket: d.ticket || "-",
+                member: d.member || "-",
+                amount: Number(d.nominal || 0),
+                bank: d.bank_tujuan || "-",
+                endingBalance: d.saldo_akhir || "Rp 0",
+                createdTime: d.waktu_masuk || "-",
+                status: d.status || "Success",
+                date: d.waktu_masuk ? d.waktu_masuk.split(' ')[0] : new Date().toISOString().split('T')[0]
+            }));
         }
 
         applyDateFilter();
@@ -112,9 +123,9 @@ function applyDateFilter() {
     let totalMasuk = 0;
     let totalKeluar = 0;
 
-    const filteredDep = globalTransactions.deposit.filter(item => item.date === selectedDate);
+    const filteredDep = globalTransactions.deposit.filter(item => !selectedDate || item.date === selectedDate);
     filteredDep.forEach(d => {
-        if(d.status === "Success" || d.status === "SELESAI OLEH BOT" || d.status === "SELESAI OLEH CS") totalMasuk += d.amount;
+        if(d.status === "Success" || d.status.includes("SELESAI")) totalMasuk += d.amount;
     });
 
     const filteredWd = globalTransactions.withdrawal.filter(item => !selectedDate || item.date === selectedDate);
@@ -130,58 +141,60 @@ function applyDateFilter() {
 
 function renderTables(depList, wdList) {
     const tbodyDep = document.getElementById("table-deposit-body");
-    tbodyDep.innerHTML = "";
-    
-    if (depList.length === 0) {
-        tbodyDep.innerHTML = `<tr><td colspan="7" class="p-4 text-center text-gray-400">Belum ada data deposit.</td></tr>`;
-    } else {
-        depList.forEach(d => {
-            tbodyDep.innerHTML += `
+    if(tbodyDep) {
+        tbodyDep.innerHTML = "";
+        if (depList.length === 0) {
+            tbodyDep.innerHTML = `<tr><td colspan="7" class="p-4 text-center text-gray-400">Belum ada data deposit.</td></tr>`;
+        } else {
+            depList.forEach(d => {
+                tbodyDep.innerHTML += `
+                    <tr class="hover:bg-gray-750">
+                        <td class="p-3 font-mono">${d.ticket}</td>
+                        <td class="p-3">${d.member}</td>
+                        <td class="p-3 text-blue-400 font-semibold">Rp ${d.amount.toLocaleString('id-ID')}</td>
+                        <td class="p-3">${d.bank}</td>
+                        <td class="p-3 text-gray-300 font-mono">${d.endingBalance}</td>
+                        <td class="p-3 text-gray-400">${d.createdTime}</td>
+                        <td class="p-3"><span class="px-2 py-0.5 text-[10px] rounded bg-blue-900 text-blue-300 font-semibold">${d.status}</span></td>
+                    </tr>
+                `;
+            });
+        }
+    }
+
+    const tbodyWd = document.getElementById("table-withdrawal-body");
+    if(tbodyWd) {
+        tbodyWd.innerHTML = "";
+        if (wdList.length === 0) {
+            tbodyWd.innerHTML = `<tr><td colspan="10" class="p-4 text-center text-gray-400">Belum ada data withdrawal dari bot.</td></tr>`;
+            return;
+        }
+
+        wdList.forEach(w => {
+            let badgeColor = "bg-teal-700 text-white";
+            if(w.status === "SELESAI OLEH CS" || w.status === "Updated by CS") badgeColor = "bg-amber-700 text-white";
+            if(w.status === "REJECT") badgeColor = "bg-red-700 text-white";
+
+            tbodyWd.innerHTML += `
                 <tr class="hover:bg-gray-750">
-                    <td class="p-3 font-mono">${d.ticket}</td>
-                    <td class="p-3">${d.member}</td>
-                    <td class="p-3 text-blue-400 font-semibold">Rp ${d.amount.toLocaleString('id-ID')}</td>
-                    <td class="p-3">${d.bank}</td>
-                    <td class="p-3 text-gray-300 font-mono">${d.endingBalance}</td>
-                    <td class="p-3 text-gray-400">${d.createdTime}</td>
-                    <td class="p-3"><span class="px-2 py-0.5 text-[10px] rounded bg-blue-900 text-blue-300 font-semibold">SUCCESS</span></td>
+                    <td class="p-3 font-mono">${w.ticket}</td>
+                    <td class="p-3 font-medium text-blue-300">${w.member}</td>
+                    <td class="p-3 text-red-400 font-semibold">Rp ${w.amount.toLocaleString('id-ID')}</td>
+                    <td class="p-3">${w.targetBank}</td>
+                    <td class="p-3 text-gray-300">${w.sourceBank}</td>
+                    <td class="p-3 font-mono text-gray-200">${w.endingBalance}</td>
+                    <td class="p-3 text-gray-400">${w.createdTime}</td>
+                    <td class="p-3 text-gray-300">${w.finishedTime}</td>
+                    <td class="p-3"><span class="px-2.5 py-1 text-[10px] rounded font-bold ${badgeColor}">${w.status}</span></td>
+                    <td class="p-3 text-center">
+                        <button onclick="openEditModal('${w.ticket}')" class="p-1.5 bg-gray-700 hover:bg-blue-600 rounded text-white transition" title="Edit ID Member">
+                            ✏️
+                        </button>
+                    </td>
                 </tr>
             `;
         });
     }
-
-    const tbodyWd = document.getElementById("table-withdrawal-body");
-    tbodyWd.innerHTML = "";
-    
-    if (wdList.length === 0) {
-        tbodyWd.innerHTML = `<tr><td colspan="10" class="p-4 text-center text-gray-400">Belum ada data withdrawal dari bot.</td></tr>`;
-        return;
-    }
-
-    wdList.forEach(w => {
-        let badgeColor = "bg-teal-700 text-white";
-        if(w.status === "SELESAI OLEH CS" || w.status === "Updated by CS") badgeColor = "bg-amber-700 text-white";
-        if(w.status === "REJECT") badgeColor = "bg-red-700 text-white";
-
-        tbodyWd.innerHTML += `
-            <tr class="hover:bg-gray-750">
-                <td class="p-3 font-mono">${w.ticket}</td>
-                <td class="p-3 font-medium text-blue-300">${w.member}</td>
-                <td class="p-3 text-red-400 font-semibold">Rp ${w.amount.toLocaleString('id-ID')}</td>
-                <td class="p-3">${w.targetBank}</td>
-                <td class="p-3 text-gray-300">${w.sourceBank}</td>
-                <td class="p-3 font-mono text-gray-200">${w.endingBalance}</td>
-                <td class="p-3 text-gray-400">${w.createdTime}</td>
-                <td class="p-3 text-gray-300">${w.finishedTime}</td>
-                <td class="p-3"><span class="px-2.5 py-1 text-[10px] rounded font-bold ${badgeColor}">${w.status}</span></td>
-                <td class="p-3 text-center">
-                    <button onclick="openEditModal('${w.ticket}')" class="p-1.5 bg-gray-700 hover:bg-blue-600 rounded text-white transition" title="Edit ID Member">
-                        ✏️
-                    </button>
-                </td>
-            </tr>
-        `;
-    });
 }
 
 function openEditModal(ticket) {
@@ -213,7 +226,6 @@ async function saveEditedMember() {
         return;
     }
 
-    // Payload data yang dikirim ke Worker
     let updatedData = {
         ticket: item.ticket,
         member: newName,
@@ -236,7 +248,7 @@ async function saveEditedMember() {
         if (response.ok) {
             alert(`ID Member berhasil diperbarui menjadi "${newName}"!`);
             closeModalEdit();
-            fetchDataFromWorker(); // Refresh data dari server
+            fetchDataFromWorker();
         } else {
             alert("Gagal menyimpan perubahan ke server Worker.");
         }
