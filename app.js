@@ -23,20 +23,30 @@ window.onload = function() {
 function handleLogin() {
     const user = document.getElementById("username").value;
     const pass = document.getElementById("password").value;
+    const errorElement = document.getElementById("login-error");
     
     if(user === defaultUsername && pass === currentPassword) {
+        if(errorElement) {
+            errorElement.classList.add("hidden");
+            errorElement.innerText = "";
+        }
         localStorage.setItem("rjtx_logged_in", "true");
         document.getElementById("login-section").classList.add("hidden");
         document.getElementById("main-panel").classList.remove("hidden");
         initDashboard();
     } else {
-        alert("Username atau Password salah! Gunakan: rjbotqq / admin1139");
+        // Menggunakan pesan teks bersih di UI alih-alih alert pop-up yang membocorkan password
+        if(errorElement) {
+            errorElement.innerText = "Username atau Password salah!";
+            errorElement.classList.remove("hidden");
+        }
     }
 }
 
 function handleLogout() {
     localStorage.removeItem("rjtx_logged_in");
     document.getElementById("main-panel").classList.add("hidden");
+    document.getElementById("login-section").classList.add("hidden"); // (opsional disesuaikan)
     document.getElementById("login-section").classList.remove("hidden");
     document.getElementById("username").value = "";
     document.getElementById("password").value = "";
